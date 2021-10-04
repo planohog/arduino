@@ -1,0 +1,220 @@
+// requires use in the aurdion GUI to compile . 
+// #include <RBD_Timer.h>
+//#include <RBD_Motor.h>
+int GateDirection = HIGH; // should be open direction
+int NewGateDirection = 1; // 1 should be open direction
+int OldGateDirection;
+int AllOpenSwitch = 0;
+int AllCloseSwitch = 0;
+int GStartOpen = 0;
+int GStartClose = 0;
+int GateMoving = LOW ;
+int lastGateMoving = LOW;
+int buttonState = LOW ;            
+int lastButtonState = HIGH;
+int buttonPushCounter = 0;
+int buttonPin = 4 ;
+unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
+unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
+// PWM is connected to pin 3.
+const int pinPwm = 3;
+const int pStartOpen  =  5;
+const int pStartClose =  6;
+const int pGateOpen   = 11; // mag switch 1 wideopen OFF
+const int pGateClosed = 12; // mag switch 2  gateclosed off
+const int LEDPIN      = 13; // builtin led
+//RBD::Motor motor(3); // PWM pin
+
+// DIR is connected to pin 2.
+const int pinDir = 2;
+// Speed of the motor.
+static int iSpeed = 200;
+static int iStop = 0;
+
+// Acceleration of the motor.
+static int iAcc = 1;
+
+int StartupSlow(int GateDirection) {
+  digitalWrite(pinDir,GateDirection ); // LOW = OPEN HIGH=CLOSE
+  for(int motorValue = 0 ; motorValue <= 255; motorValue +=5) {
+    analogWrite(pinPwm, motorValue);
+    delay(60);      
+  }
+  GateMoving = HIGH ;
+  return 1;
+} // end startupslow
+
+int StopGate () {
+      analogWrite(pinPwm,0);
+      digitalWrite(pinDir, LOW);
+    //  Serial.println("insideGateStopped");
+      if (GateMoving != lastGateMoving) {  // GateMoving starts has LOW
+    // if the state has changed, increment the counter
+      lastGateMoving = HIGH;
+      GateMoving = LOW;
+      }
+return 1;
+}      // end stopgate
+
+int CloseGate () {
+ if ( AllCloseSwitch != LOW && GateMoving == LOW ) {
+      StartupSlow(HIGH); // low=close high=open
+     // analogWrite(pinPwm, 255 );
+     // digitalWrite(pinDir, HIGH );
+      Serial.println("inSideGateCLOSE");
+      lastGateMoving = LOW;
+      GateMoving = HIGH;
+      return 1;
+      }
+   else if ( AllCloseSwitch == LOW && GateMoving == HIGH ) {
+    StopGate();
+   // buttonPushCounter = 0;
+     lastGateMoving = HIGH ;
+     GateMoving = LOW ;
+     buttonPushCounter = 0;
+    return 0;      
+   }
+else if ( AllCloseSwitch == LOW && GateMoving == LOW ) {
+    StopGate();
+   // buttonPushCounter = 0;
+     lastGateMoving = HIGH ;
+     buttonPushCounter = 0;
+    return 0;      
+   }
+
+
+
+ }
+ // end closegate
+
+int OpenGate () {
+ 
+
+  if ( AllOpenSwitch != LOW && GateMoving == LOW ) {
+    StartupSlow(LOW);
+     // analogWrite(pinPwm, 255 );
+     //  digitalWrite(pinDir, LOW );
+      Serial.println("inSideGateOpening");
+      lastGateMoving = LOW;
+      GateMoving = HIGH;
+      return 1;
+      }
+   else if ( AllOpenSwitch == LOW && GateMoving == HIGH ) {
+    StopGate();
+   // buttonPushCounter = 0;
+     lastGateMoving = HIGH;
+      GateMoving = LOW;
+      buttonPushCounter = 2;
+    return 0;      
+   }
+
+   else if ( AllOpenSwitch == LOW && GateMoving == LOW ){
+   StopGate();
+   // buttonPushCounter = 0;
+     lastGateMoving = HIGH;
+      GateMoving = LOW;
+      buttonPushCounter = 2;
+    return 0;      
+
+   
+   }
+
+
+
+   
+ }
+ // end opengate
+
+void setup() {
+ // Serial.begin(9600);
+// Initialize the PWM and DIR pins as digital outputs.
+pinMode(pinPwm, OUTPUT);
+pinMode(buttonPin, INPUT);   // pin 4  goes high
+pinMode(pinDir, OUTPUT);
+pinMode(LEDPIN, OUTPUT);
+pinMode(pGateOpen,INPUT_PULLUP);   //   pin 11
+pinMode(pStartOpen,INPUT_PULLUP);  //   pin 5
+pinMode(pGateClosed,INPUT_PULLUP); //  pin 12
+pinMode(pStartClose,INPUT_PULLUP); // pin 6
+}
+
+void loop() {
+   buttonState = digitalRead(buttonPin); // pin4  
+  AllOpenSwitch = digitalRead(pGateOpen);   // read pin 11 input
+  AllCloseSwitch = digitalRead(pGateClosed);   // read pin 12 input
+  GStartOpen = digitalRead(pStartOpen);   // read pin5 input
+  GStartClose = digitalRead(pStartClose);   // read pin6 input
+
+// compare the buttonState to its previous state
+  if (buttonState != lastButtonState) {  // LBS starts has HIGH
+    // if the state has changed, increment the counter
+    if (buttonState == HIGH ) {
+      // if the current state is HIGH then the button went from off to on:
+      buttonPushCounter++;
+      if (buttonPushCounter > 3 ) { buttonPushCounter = 0; }
+    //  Serial.println("button on");
+     // Serial.print("number of button pushes: ");
+      Serial.println(buttonPushCounter);
+    } else {
+      // if the current state is LOW then the button went from on to off:
+      Serial.println("button off");
+    }
+    // Delay a little bit to avoid bouncing
+    delay(50);
+  }
+  // save the current state as the last state, for next time through the loop
+  lastButtonState = buttonState;
+
+switch (buttonPushCounter) {
+  case 1:
+    // open gate var equals 1
+    //Serial.print("case number of button pushes 1: ");
+   
+    OpenGate();
+ 
+    break;
+  case 3:
+    //close gate  var equals 2
+    //Serial.println("case number of button pushes 3: ");
+    CloseGate();
+   
+    break;
+  case 2:
+    // stop gate var equals 2
+   // Serial.println("case number of button pushes 2: ");
+    if (lastGateMoving == LOW ) {
+        lastGateMoving == HIGH;
+        GateMoving == LOW;
+        StopGate();
+    }
+    //buttonPushCounter = 0;
+    break;
+     
+  default:
+    // if nothing else matches, do the default
+    // default is optional
+    StopGate();
+    break;
+}
+/*
+  Serial.print(" ButtonPushCounter ");
+  Serial.println(buttonPushCounter);
+    Serial.print(" Pin11 AllOpenSwitch ");
+    Serial.println(AllOpenSwitch);
+    Serial.print(" Pin12 AllCloseSwitch ");
+    Serial.println(AllCloseSwitch);
+    Serial.print(" LastGateMoving ");
+    Serial.println(lastGateMoving);
+    Serial.print("GateMoving detected ");
+    Serial.println(GateMoving);
+    Serial.println("");
+  */
+    //######### OPEN GATE #################
+ 
+//delay(1000);
+
+ 
+
+} // end loop
+	
